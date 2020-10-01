@@ -9,20 +9,24 @@ import * as vscode from "vscode";
 import stack = require("../vscode-project-manager-core/src/utils/stack");
 
 import { Locators } from "../vscode-project-manager-core/src/model/locators";
-import { ProjectStorage } from "../vscode-project-manager-core/src/model/storage";
+import { Project, ProjectStorage } from "../vscode-project-manager-core/src/model/storage";
 import { PathUtils } from "../vscode-project-manager-core/src/utils/PathUtils";
 
 import { Providers } from "../vscode-project-manager-core/src/sidebar/providers";
-import { WhatsNewManager } from "../vscode-whats-new/src/Manager";
-import { WhatsNewProjectManagerContentProvider } from "./whats-new/ProjectManagerContentProvider";
 
 import { showStatusBar, updateStatusBar } from "./statusBar";
-
-const PROJECTS_FILE = "projects.json";
+import { Suggestion } from "../vscode-project-manager-core/src/model/Suggestion";
+import { CommandLocation, OpenInCurrentWindowIfEmptyMode, PROJECTS_FILE } from "./constants";
+import { isRemotePath, isWindows } from "../vscode-project-manager-core/src/utils/remote";
+import { buildProjectUri } from "../vscode-project-manager-core/src/utils/uri";
+import { Container } from "../vscode-project-manager-core/src/container";
+import { registerWhatsNew } from "./whats-new/commands";
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+
+    Container.context = context;
 
     // Sets storage path if recommended path provided by current version of VS Code.  
     PathUtils.setExtensionContext(context);
@@ -38,26 +42,38 @@ export function activate(context: vscode.ExtensionContext) {
     const providerManager: Providers = new Providers(context, locators, projectStorage);
     locators.setProviderManager(providerManager);
 
-    const provider = new WhatsNewProjectManagerContentProvider();
-    const viewer = new WhatsNewManager(context).registerContentProvider("project-manager", provider);
-    viewer.showPageInActivation();
-    context.subscriptions.push(vscode.commands.registerCommand("projectManager.whatsNew", () => viewer.showPage()));
+    registerWhatsNew();
 
-    vscode.commands.registerCommand("projectManager.open", (node: string | any) => {
-        let uri: vscode.Uri;
-        if (typeof node === "string") {
-            uri = vscode.Uri.file(node);
-        } else {
-            uri = vscode.Uri.file(node.command.arguments[0]);
-        }
+    context.subscriptions.push(vscode.commands.registerCommand("_projectManager.openFolderWelcome", () => {
+        const openFolderCommand = isWindows ? "workbench.action.files.openFolder" : "workbench.action.files.openFileFolder"
+        vscode.commands.executeCommand(openFolderCommand)
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand("projectManager.hideGitWelcome", () => {
+        context.globalState.update("hideGitWelcome", true);
+        providerManager.showTreeViewFromAllProviders();
+        vscode.commands.executeCommand("setContext", "projectManager.hiddenGitWelcome", true);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand("projectManager.showGitWelcome", () => {
+        context.globalState.update("hideGitWelcome", false);
+        providerManager.showTreeViewFromAllProviders();
+        vscode.commands.executeCommand("setContext", "projectManager.hiddenGitWelcome", false);
+    }));
+    const hideGitWelcome = context.globalState.get<boolean>("hideGitWelcome", false);
+    vscode.commands.executeCommand("setContext", "projectManager.hiddenGitWelcome", hideGitWelcome);
+
+    vscode.commands.registerCommand("_projectManager.open", (node: string | any) => {
+        const uri = typeof node === "string" 
+                    ? buildProjectUri(node)
+                    : buildProjectUri(node.command.arguments[0]);
         vscode.commands.executeCommand("vscode.openFolder", uri, false)
             .then(
             value => ({}),  // done
             value => vscode.window.showInformationMessage("Could not open the project!"));
     });
-    vscode.commands.registerCommand("projectManager.openInNewWindow", node => {
-        const uri: vscode.Uri = vscode.Uri.file(node.command.arguments[0]);
-        vscode.commands.executeCommand("vscode.openFolder", uri, true)
+    vscode.commands.registerCommand("_projectManager.openInNewWindow", node => {
+        const uri = buildProjectUri(node.command.arguments[0]);
+        const openInNewWindow = shouldOpenInNewWindow(true, CommandLocation.SideBar);
+        vscode.commands.executeCommand("vscode.openFolder", uri, openInNewWindow)
             .then(
             value => ({}),  // done
             value => vscode.window.showInformationMessage("Could not open the project!"));
@@ -70,14 +86,14 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("projectManager.editProjects", () => editProjects());
     vscode.commands.registerCommand("projectManager.listProjects", () => listProjects(false));
     vscode.commands.registerCommand("projectManager.listProjectsNewWindow", () => listProjects(true));
-    vscode.commands.registerCommand("projectManager.saveFirstProject", () => saveProject());
 
     // new commands (ActivityBar)
-    vscode.commands.registerCommand("projectManager.addToWorkspace", (node) => addProjectToWorkspace(node));
-    vscode.commands.registerCommand("projectManager.deleteProject", (node) => deleteProject(node));
-    vscode.commands.registerCommand("projectManager.renameProject", (node) => renameProject(node));
+    vscode.commands.registerCommand("projectManager.addToWorkspace#sideBar", (node) => addProjectToWorkspace(node));
+    vscode.commands.registerCommand("projectManager.addToWorkspace", () => addProjectToWorkspace(undefined));
+    vscode.commands.registerCommand("_projectManager.deleteProject", (node) => deleteProject(node));
+    vscode.commands.registerCommand("_projectManager.renameProject", (node) => renameProject(node));
     vscode.commands.registerCommand("projectManager.addToFavorites", (node) => saveProject(node));
-    vscode.commands.registerCommand("projectManager.toggleProjectEnabled", (node) => toggleProjectEnabled(node));
+    vscode.commands.registerCommand("_projectManager.toggleProjectEnabled", (node) => toggleProjectEnabled(node));
 
     loadProjectsFile();
 
@@ -95,6 +111,10 @@ export function activate(context: vscode.ExtensionContext) {
             cfg.affectsConfiguration("projectManager.any") || 
             cfg.affectsConfiguration("projectManager.cacheProjectsBetweenSessions")) {
             refreshProjects();
+        }
+
+        if (cfg.affectsConfiguration("workbench.iconTheme")) {
+            providerManager.refreshTreeViews()
         }
     }));
 
@@ -182,21 +202,12 @@ export function activate(context: vscode.ExtensionContext) {
             wpath = node.label; 
             rootPath = node.command.arguments[0];
         } else {
-            // Display a message box to the user
-            // let wpath = vscode.workspace.rootPath;
-            const workspace0 = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0] : undefined;
-            rootPath = workspace0 ? workspace0.uri.fsPath : undefined;
-
-            if (!rootPath) {
-                vscode.window.showInformationMessage("Open a folder first to save a project");
+            const projectDetails = Suggestion.getProjectDetails();
+            if (!projectDetails) {
                 return;
             }
-    
-            if (process.platform === "win32") {
-                wpath = rootPath.substr(rootPath.lastIndexOf("\\") + 1);
-            } else {
-                wpath = rootPath.substr(rootPath.lastIndexOf("/") + 1);
-            }    
+            rootPath = projectDetails.path;
+            wpath = projectDetails.name;
         }
 
         // ask the PROJECT NAME (suggest the )
@@ -267,103 +278,50 @@ export function activate(context: vscode.ExtensionContext) {
         });
     }
 
-    function listProjects(forceNewWindow: boolean) {
-        let items = [];
-        items = projectStorage.map();
-        items = locators.sortGroupedList(items);
+    async function listProjects(forceNewWindow: boolean) {
 
-        function onRejectListProjects(reason) {
-            vscode.commands.executeCommand("setContext", "inProjectManagerList", false);
-            vscode.window.showInformationMessage("Error loading projects: ${reason}");
+        const pick = await showListProjectsQuickPick(folderNotFound); 
+        if (pick) {
+            aStack.push(pick.name);
+            context.globalState.update("recent", aStack.toString());
+
+            const openInNewWindow = shouldOpenInNewWindow(forceNewWindow, CommandLocation.CommandPalette);
+            const uri = buildProjectUri(pick.rootPath);
+            vscode.commands.executeCommand("vscode.openFolder", uri, openInNewWindow)
+                .then(
+                value => ({}),  // done
+                value => vscode.window.showInformationMessage("Could not open the project!"));
+            return;
+        }
+    }
+
+    function shouldOpenInNewWindow(openInNewWindow: boolean, calledFrom: CommandLocation): boolean {
+        if (!openInNewWindow) {
+            return false;
         }
 
-        // promisses
-        function onResolve(selected) {
-            vscode.commands.executeCommand("setContext", "inProjectManagerList", false);
-            if (!selected) {
-                return;
-            }
-
-            if (!fs.existsSync(selected.description.toString())) {
-
-                if (selected.label.substr(0, 2) === "$(") {
-                    vscode.window.showErrorMessage("Path does not exist or is unavailable.");
-                    return;
-                }
-
-                const optionUpdateProject = <vscode.MessageItem> {
-                    title: "Update Project"
-                };
-                const optionDeleteProject = <vscode.MessageItem> {
-                    title: "Delete Project"
-                };
-
-                vscode.window.showErrorMessage("The project has an invalid path. What would you like to do?", optionUpdateProject, optionDeleteProject).then(option => {
-                    // nothing selected
-                    if (typeof option === "undefined") {
-                        return;
-                    }
-
-                    if (option.title === "Update Project") {
-                        vscode.commands.executeCommand("projectManager.editProjects");
-                    } else { // Update Project
-                        projectStorage.pop(selected.label);
-                        projectStorage.save();
-                        return;
-                    }
-                });
-            } else {
-                // project path
-                let projectPath = selected.description;
-                projectPath = PathUtils.normalizePath(projectPath);
-
-                // update MRU
-                aStack.push(selected.label);
-                context.globalState.update("recent", aStack.toString());
-
-                const uri: vscode.Uri = vscode.Uri.file(projectPath);
-                vscode.commands.executeCommand("vscode.openFolder", uri, forceNewWindow)
-                    .then(
-                    value => ({}),  // done
-                    value => vscode.window.showInformationMessage("Could not open the project!"));
-            }
+        if (vscode.workspace.workspaceFolders || vscode.window.activeTextEditor) {
+            return openInNewWindow;
         }
 
-        const options = <vscode.QuickPickOptions> {
-            matchOnDescription: vscode.workspace.getConfiguration("projectManager").get("filterOnFullPath", false),
-            matchOnDetail: false,
-            placeHolder: "Loading Projects (pick one to open)"
-        };
+        const config = vscode.workspace.getConfiguration("projectManager").get<string>("openInCurrenWindowIfEmpty");
+        if (config === OpenInCurrentWindowIfEmptyMode.always) {
+            return false;
+        }
+        if (config === OpenInCurrentWindowIfEmptyMode.never) {
+            return openInNewWindow;
+        }
 
-        getProjects(items)
-            .then((folders) => {
-                return locators.getLocatorProjects(<any[]> folders, locators.vscLocator);
-            })
-            .then((folders) => {
-                return locators.getLocatorProjects(<any[]> folders, locators.gitLocator);
-            })
-            .then((folders) => {
-                return locators.getLocatorProjects(<any[]> folders, locators.mercurialLocator);
-            })
-            .then((folders) => {
-                return locators.getLocatorProjects(<any[]> folders, locators.svnLocator);
-            })
-            .then((folders) => {
-                return locators.getLocatorProjects(<any[]> folders, locators.anyLocator);
-            })
-            .then((folders) => { // sort
-                if ((<any[]> folders).length === 0) {
-                    vscode.window.showInformationMessage("No projects saved yet!");
-                    return;
-                } else {
-                    if (!vscode.workspace.getConfiguration("projectManager").get("groupList", false)) {
-                        folders = locators.sortProjectList(folders);
-                    }
-                    vscode.commands.executeCommand("setContext", "inProjectManagerList", true);
-                    vscode.window.showQuickPick(<any[]> folders, options)
-                        .then(onResolve, onRejectListProjects);
-                }
-            });
+        switch (config) {
+            case OpenInCurrentWindowIfEmptyMode.always:
+                return false;
+            case OpenInCurrentWindowIfEmptyMode.never:
+                return openInNewWindow;
+            case OpenInCurrentWindowIfEmptyMode.onlyUsingCommandPalette:
+                return calledFrom !== CommandLocation.CommandPalette;
+            case OpenInCurrentWindowIfEmptyMode.onlyUsingSideBar:
+                return calledFrom !== CommandLocation.SideBar;
+        }
     }
 
     function loadProjectsFile() {
@@ -393,16 +351,128 @@ export function activate(context: vscode.ExtensionContext) {
         let projectFile: string;
         const projectsLocation: string = vscode.workspace.getConfiguration("projectManager").get<string>("projectsLocation");
         if (projectsLocation !== "") {
-            projectFile = path.join(projectsLocation, PROJECTS_FILE);
+            projectFile = path.join(PathUtils.expandHomePath(projectsLocation), PROJECTS_FILE);
         } else {
             projectFile = PathUtils.getFilePathFromAppData(PROJECTS_FILE);
         }
         return projectFile;
     }
 
-    function addProjectToWorkspace(node: any) {
+    function addProjectPathToWorkspace(projectPath: string) {
+        if (path.extname(projectPath) === ".code-workspace") {
+            vscode.window.showWarningMessage("You can't add a Workspace to another Workspace.");
+            return;
+        }
         vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders ? 
-            vscode.workspace.workspaceFolders.length : 0, null, { uri: vscode.Uri.file(node.command.arguments[ 0 ]) });
+            vscode.workspace.workspaceFolders.length : 0, null, { uri: vscode.Uri.file(projectPath)});
+    }
+
+    function showListProjectsQuickPick(folderNotFound: (name: string, path: string) => void): Promise<Project | undefined> {
+        let items = [];
+        items = projectStorage.map();
+        items = locators.sortGroupedList(items);
+
+        return new Promise<Project | undefined>((resolve, reject) => {
+
+            const options = <vscode.QuickPickOptions> {
+                matchOnDescription: vscode.workspace.getConfiguration("projectManager").get("filterOnFullPath", false),
+                matchOnDetail: false,
+                placeHolder: "Loading Projects (pick one...)"
+            };
+    
+            getProjects(items)
+                .then((folders) => {
+                    return locators.getLocatorProjects(<any[]> folders, locators.vscLocator);
+                })
+                .then((folders) => {
+                    return locators.getLocatorProjects(<any[]> folders, locators.gitLocator);
+                })
+                .then((folders) => {
+                    return locators.getLocatorProjects(<any[]> folders, locators.mercurialLocator);
+                })
+                .then((folders) => {
+                    return locators.getLocatorProjects(<any[]> folders, locators.svnLocator);
+                })
+                .then((folders) => {
+                    return locators.getLocatorProjects(<any[]> folders, locators.anyLocator);
+                })
+                .then((folders) => { // sort
+                    if ((<any[]> folders).length === 0) {
+                        vscode.window.showInformationMessage("No projects saved yet!");
+                        return resolve(undefined);
+                    } else {
+                        if (!vscode.workspace.getConfiguration("projectManager").get("groupList", false)) {
+                            folders = locators.sortProjectList(folders);
+                        }
+                        vscode.commands.executeCommand("setContext", "inProjectManagerList", true);
+                        vscode.window.showQuickPick(<any[]> folders, options)
+                            .then((selected) => {
+                                vscode.commands.executeCommand("setContext", "inProjectManagerList", false);
+                                if (!selected) {
+                                    return resolve(undefined);
+                                }
+
+                                if (!isRemotePath(selected.description) && !fs.existsSync(selected.description.toString())) {
+
+                                    if (selected.label.substr(0, 2) === "$(") {
+                                        vscode.window.showErrorMessage("Path does not exist or is unavailable.");
+                                        return resolve(undefined);
+                                    }
+
+                                    if (folderNotFound) {
+                                        folderNotFound(selected.label, selected.description);
+                                    }
+                                } else {
+                                    // project path
+                                    return resolve(<Project> {
+                                        name: selected.label,
+                                        rootPath: PathUtils.normalizePath(selected.description)
+                                    });
+                                }
+                            }, (reason) => {
+                                vscode.commands.executeCommand("setContext", "inProjectManagerList", false);
+                                return resolve(undefined);          
+                            });
+                    }
+                });
+        })
+    }
+
+    function folderNotFound(name, path: string) {
+
+        const optionUpdateProject = <vscode.MessageItem> {
+            title: "Update Project"
+        };
+        const optionDeleteProject = <vscode.MessageItem> {
+            title: "Delete Project"
+        };
+
+        vscode.window.showErrorMessage("The project has an invalid path. What would you like to do?", optionUpdateProject, optionDeleteProject).then(option => {
+            // nothing selected
+            if (typeof option === "undefined") {
+                return;
+            }
+
+            if (option.title === "Update Project") {
+                vscode.commands.executeCommand("projectManager.editProjects");
+            } else { // Update Project
+                projectStorage.pop(name);
+                projectStorage.save();
+                return;
+            }
+        });
+    }
+
+    async function addProjectToWorkspace(node: any) {
+        if (node) {
+            addProjectPathToWorkspace(node.command.arguments[0]);
+            return;
+        }
+
+        const pick = await showListProjectsQuickPick(folderNotFound); 
+        if (pick) {
+            addProjectPathToWorkspace(pick.rootPath);
+        }
     }
 
     function deleteProject(node: any) {
@@ -410,7 +480,7 @@ export function activate(context: vscode.ExtensionContext) {
         projectStorage.pop(node.command.arguments[1]);
         projectStorage.save();
         vscode.window.showInformationMessage("Project successfully deleted!");
-    };
+    }
 
     function renameProject(node: any) {
         const oldName: string = node.command.arguments[1];
@@ -443,9 +513,9 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage("Project already exists!");
             }
         });
-    };
+    }
 
-    function toggleProjectEnabled(node: any, askForUndo: boolean = true) {
+    function toggleProjectEnabled(node: any, askForUndo = true) {
         const projectName: string = node.command.arguments[1];
         const enabled: boolean = projectStorage.toggleEnabled(projectName);
         
@@ -473,5 +543,5 @@ export function activate(context: vscode.ExtensionContext) {
             });
         }
             
-    };
+    }
 }

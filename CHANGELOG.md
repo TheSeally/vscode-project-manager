@@ -1,3 +1,85 @@
+## [11.3.0] - 2020-09-06
+### Added
+- Support `$home` and `~` (tilde) symbol on `projectLocation` setting (issue [#384](https://github.com/alefragnani/vscode-project-manager/issues/384))
+- Support `~` (tilde) symbol on any path related setting (issue [#414](https://github.com/alefragnani/vscode-project-manager/issues/414))
+- Support `glob` patterns in `ignoredFolders` settings (issue [#278](https://github.com/alefragnani/vscode-project-manager/issues/278))
+- Localization - Czech (Thanks to @Amereyeu [PR #412](https://github.com/alefragnani/vscode-project-manager/pull/412))
+
+## [11.2.0] - 2020-08-19
+### Added
+- Support string array in Settings UI (issue [#410](https://github.com/alefragnani/vscode-project-manager/issues/410))
+- Use new remote codicon (issue [#396](https://github.com/alefragnani/vscode-project-manager/issues/396))
+
+### Fixed
+- Weird icon behaviour when no ThemeIcon is selected (issue [#392](https://github.com/alefragnani/vscode-project-manager/issues/392))
+- maxDepthRecursion worried about extra trailing path separator (issue [#404](https://github.com/alefragnani/vscode-project-manager/issues/404))
+- Localization - Simplified Chinese (Thanks to @loniceras [PR #403](https://github.com/alefragnani/vscode-project-manager/pull/403))
+- Typo in What's New (Thanks to @geauxtigers [PR #390](https://github.com/alefragnani/vscode-project-manager/pull/390))
+
+## [11.1.0] - 2020-06-19
+### Changed
+- Internal commands can't be customisable (issue [#388](https://github.com/alefragnani/vscode-project-manager/issues/388))
+
+### Fixed
+- Status bar not working on remotes (issue [#379](https://github.com/alefragnani/vscode-project-manager/issues/379))
+- `Command Palette` showing ”Path does not exists” for remote projects (issue [#380](https://github.com/alefragnani/vscode-project-manager/issues/380))
+- `Open Folder` command in Welcome view not working on Windows (issue [#387](https://github.com/alefragnani/vscode-project-manager/issues/387))
+
+### Internal
+- Migrate from TSLint to ESLint (issue [#360](https://github.com/alefragnani/vscode-project-manager/issues/360))
+- Use `vscode-ext-codicons` package (issue [#386](https://github.com/alefragnani/vscode-project-manager/issues/386))
+
+## [11.0.1] - 2020-05-19
+### Fixed
+- Path does not exists for SSH remote project (issue [#375](https://github.com/alefragnani/vscode-project-manager/issues/375))
+- `Open` command in Side Bar's context menu does not work (issue [#376](https://github.com/alefragnani/vscode-project-manager/issues/376))
+- Path does not exists for Docker remote project on Windows (issue [#377](https://github.com/alefragnani/vscode-project-manager/issues/377))
+
+## [11.0.0] - 2020-05-14
+### Added
+- Support open **Remote Projects** from your local installation (issue [#345](https://github.com/alefragnani/vscode-project-manager/issues/345))
+- **Side Bar** welcome message (issue [#353](https://github.com/alefragnani/vscode-project-manager/issues/353))
+
+### Internal
+- Remove `vscode` module dependency (issue [#369](https://github.com/alefragnani/vscode-project-manager/issues/369))
+
+## [10.12.0] - 2020-04-25
+### Added
+- Setting to decide if the `Open in New Window` command should open in the current window, if empty (issue [#188](https://github.com/alefragnani/vscode-project-manager/issues/188))
+
+### Fixed
+- Typo in README (Thanks to @1st [PR #348](https://github.com/alefragnani/vscode-project-manager/pull/348))
+- Typo in README (issue [#337](https://github.com/alefragnani/vscode-project-manager/issues/337))
+
+## Internal
+- Support VS Code package split  (issue [#361](https://github.com/alefragnani/vscode-project-manager/issues/361))
+- Support Extension View Context Menu (issue [#327](https://github.com/alefragnani/vscode-project-manager/issues/327))
+
+## [10.11.0] - 2020-03-06
+### Added
+- Increase **Remote Development** support (issues [#323](https://github.com/alefragnani/vscode-project-manager/issues/323) and (Thanks to @egamma [PR #331](https://github.com/alefragnani/vscode-project-manager/pull/331))
+- `Add Project to Workspace` command in Command Palette (issues [#283](https://github.com/alefragnani/vscode-project-manager/issues/283)
+
+## Internal
+- Support **ThemeIcon** (issues [#326](https://github.com/alefragnani/vscode-project-manager/issues/326)
+
+## [10.10.0] - 2020-01-25
+### Added
+- Support **Remote Development** (issues [#284](https://github.com/alefragnani/vscode-project-manager/issues/284) and [#318](https://github.com/alefragnani/vscode-project-manager/issues/318))
+
+## [10.9.1] - 2019-11-21
+### Changed
+- Update CodeStream Ad and URL
+
+## [10.9.0] - 2019-11-18
+### Added
+- Localization support - Simplified Chinese (Thanks to @L1cardo [PR #300](https://github.com/alefragnani/vscode-project-manager/pull/300))
+- `Open in New Window` hover command in Side Bar
+
+## [10.8.0] - 2019-09-25
+### Added
+- Support to save **Workspaces** as projects
+
 ## [10.7.0] - 2019-08-25
 ### Added
 - New Side Bar icon matching new VS Code icon style

@@ -3,12 +3,16 @@
   <a title="Learn more about Project Manager" href="http://github.com/alefragnani/vscode-project-manager"><img src="https://raw.githubusercontent.com/alefragnani/vscode-project-manager/master/images/vscode-project-manager-logo-readme.png" alt="Project Manager Logo" width="70%" /></a>
 </p>
 
-# What's new in Project Manager 10.6
+# What's new in Project Manager 11.3
 
 * Adds an all-new **Side Bar**
+* Support **Remote Development** support
+* Support open **Remote Projects** from local installation
+* Adds support to save **Workspaces** as Projects
+* Adds `Add Project to Workspace` command to **Command Palette**
 * Adds **Portable Mode** support
-* Use new `NotificationUI` while refreshing projects
-* Adds `Disable Project`, `Add to Workspace`, `Add to Favorites` and `Refresh Project` commands
+* Adds `Disable Project`, `Add to Workspace`, `Add to Favorites` and `Refresh Project` commands in **Side Bar**
+* Adds `Open in New Window` hover command in **Side Bar**
 * Adds **Localization** support
 
 # Support
@@ -31,21 +35,22 @@
 
 ## Sponsors
 
-<a title="Try CodeStream" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=projectmanager"><img src="https://alt-images.codestream.com/codestream_logo_projectmanager.png" width="35%"/></a></br>
-Discuss, review, and share code with your team in VS Code. Links discussions about code to your code. Integrates w/ Slack, Jira, Trello, and Live Share.<br> <a title="Try CodeStream" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=projectmanager">Try it free</a>
+<a title="Try CodeStream" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_campaign=projectmanager&utm_medium=banner"><img src="https://alt-images.codestream.com/codestream_logo_projectmanager.png" width="35%"/></a></br>
+Discussing code is now as easy as highlighting a block and typing a comment right from your IDE. Take the pain out of code reviews and improve code quality.<br> <a title="Try CodeStream" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_campaign=projectmanager&utm_medium=banner">Try it free</a>
 
 <br>
 
 # Project Manager
 
-It helps you to easily access your projects, no matter where they are located. _Don't miss that important projects anymore_. You can define your own **Favorite** projects, or choose for auto-detect **VSCode** projects, **Git**, **Mercurial** and **SVN** repositories or **any** folder.
+It helps you to easily access your **projects**, no matter where they are located. _Don't miss those important projects anymore_. 
 
-Since version 8 you have a dedicated **Side Bar** for your projects!
+You can define your own **Projects** (also called **Favorites**), or choose for auto-detect **Git**, **Mercurial** or **SVN** repositories, **VSCode** folders, or **any** other folder.
 
 Here are some of the features that **Project Manager** provides:
 
-* Save any project as **Favorite**
-* Auto-detect **VSCode**, **Git**, **Mercurial** or **SVN** repositiories
+* Save any folder as a **Project**
+* Save any workspace as a **Project**
+* Auto-detect **Git**, **Mercurial** or **SVN** repositiories
 * Open projects in the same or new window
 * Identify _deleted/renamed_ projects
 * A **Status Bar** which identifies the current project
@@ -55,7 +60,7 @@ Here are some of the features that **Project Manager** provides:
 
 ## Available Commands
 
-* `Project Manager: Save Project` Save the current folder as a new project
+* `Project Manager: Save Project` Save the current folder/workspace as a new project
 * `Project Manager: Edit Project` Edit your projects manually (`projects.json`)
 * `Project Manager: List Projects to Open` List all saved/detected projects and pick one
 * `Project Manager: List Projects to Open in New Window` List all saved/detected projects and pick one to be opened in New Window
@@ -65,13 +70,15 @@ Here are some of the features that **Project Manager** provides:
 
 ### Save Project
 
-You can save the current project in the manager at any time. You just need to type a name. It even suggests a name to you _automatically_ :)
+You can save the current folder/workspace as a **Project** at any time. You just need to type its name. 
 
 ![Save](images/project-manager-save.png)
+
+> It suggests a name to you _automatically_ :)
  
 ### Edit Projects
 
-For easier customization of your project list, you can edit the `projects.json` file directly inside **Code**. Just execute `Project Manager: Edit Projects` and the `projects.json` file is opened. Simple as this:
+For easier customization of your project list, you can edit the `projects.json` file, directly inside **Code**. Just execute `Project Manager: Edit Projects` and the `projects.json` file is opened. Simple as this:
 
 ```json
 [
@@ -91,7 +98,7 @@ For easier customization of your project list, you can edit the `projects.json` 
     },
     {
         "name": "Numbered Bookmarks",
-        "rootPath": "$home\\Documents\\GitHub\\vscode-numbered-bookmarks",
+        "rootPath": "~\\Documents\\GitHub\\vscode-numbered-bookmarks",
         "paths": [],
         "group": "",
         "enabled": false
@@ -100,7 +107,8 @@ For easier customization of your project list, you can edit the `projects.json` 
 ```
 
 For now, only `name`, `rootPath`, and `enabled` fields are used.
-> Use a special variable called `$home` while defining any `path`. It will be replaced by the HOME folder.
+
+> You can use `~` or `$home` while defining any path. It will be replaced by your HOME folder.
 
 > Projects that are *not* `enabled` will be hidden from project listings until re-enabled.
 
@@ -147,7 +155,7 @@ You can choose how your projects are sorted
 
 ![List](images/project-manager-list-sort-by-name.png)
 
-* Choose if the project list must be grouped by its _kind_ (**Favorites**, **VS Code**, **Git**, **Mercurial** and **SVN**).
+* Choose if the project list must be grouped by its _kind_ (**Favorites**, **Git**, **Mercurial**, **SVN** and **VS Code**).
 
 ```json
     "projectManager.groupList": true
@@ -179,7 +187,9 @@ If you intend to _share_ projects between  **Stable** and **Insider** installati
     "projectManager.projectsLocation": "C\\Users\\myUser\\AppData\\Roaming\\Code\\User"
 ```
 
-* Automatic Detection of Projects (**VSCode** ![vscode](images/ico_file_code.png), **Git** ![git](images/ico_git_branch.png), **Mercurial** ![git](images/ico_git_branch.png) and **SVN** ![svn](images/ico_svn.png))
+> You can use `~` or `$home` while defining the path. It will be replaced by your HOME folder.
+
+* Automatic Detection of Projects (**Git** ![git](images/ico_git_branch.png), **Mercurial** ![git](images/ico_git_branch.png), **SVN** ![svn](images/ico_svn.png) and **VSCode** ![vscode](images/ico_file_code.png))
 
 ```json
     "projectManager.git.baseFolders": [
@@ -196,9 +206,12 @@ If you intend to _share_ projects between  **Stable** and **Insider** installati
         "out", 
         "typings", 
         "test"
+        "fork*"
     ],
 ```
-> Define which folders should be ignored (inside the BaseFolders)
+> Define which folders should be ignored (inside the BaseFolders).
+
+> It supports `glob` patterns
 
 ```json
     "projectManager.git.maxDepthRecursion": 4
@@ -216,7 +229,6 @@ If you intend to _share_ projects between  **Stable** and **Insider** installati
 ```json 
     "projectManager.showProjectNameInStatusBar": true
 ```
-![Save](images/project-manager-statusbar.png) 
 
 * Open projects in _New Window_ when clicking in status bar (`false` by default)
 
@@ -224,17 +236,28 @@ If you intend to _share_ projects between  **Stable** and **Insider** installati
     "projectManager.openInNewWindowWhenClickingInStatusBar": true
 ```
 
+* Indicates if the `New Window` command should open the project in current window, when empty (`always` by default)
+
+  * `always`: Whenever you call the Open in New Window command, it will open in the current window, if empty"
+  * `onlyUsingCommandPalette`: Only open in the current window if you use the Command Palette"
+  * `onlyUsingSideBar`: Only open in the current window if you use the Side Bar"
+  * `never`: Works as today. The Open in New Window command will always open in New Window
+
+```json 
+    "projectManager.openInCurrenWindowIfEmpty": "always"
+```
+
 ## Side Bar
 
-The **Projects** are now presented id its own **Side Bar**, giving you more free space in your Explorer view. You will have a few extra commands available:
+The **Projects** are now presented in its own **Side Bar**, giving you more free space in your Explorer view. You will have a few extra commands available:
 
 * Open a project, simply clicking in the project item
-* Open a project in a New Window, right clicking in the project item
+* Open a project in a New Window, right clicking in the project item, or using the hover button
 * Add a project to the current Workspace
 
-![Side Bar](images/vscode-project-manager-activity-bar.gif)
+![Side Bar](images/vscode-project-manager-side-bar.gif)
 
-> The `projectManager.treeview.visible` setting was deprecated. If you don't want to see the **Project Manager** icon in the Activity Bar, right-click and uncheck it from the context menu. 
+> If you don't want to see the **Project Manager** icon in the Activity Bar, right-click and uncheck it from the context menu. 
 
 ## Installation and Configuration
 
